@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>車險管家</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --primary:#1a5fa8;--primary-light:#e8f1fb;--primary-dark:#0f3d6e;
+  --success:#16a34a;--success-light:#dcfce7;
+  --warning:#ca8a04;--warning-light:#fef9c3;
+  --danger:#dc2626;--danger-light:#fee2e2;
+  --gray-50:#f9fafb;--gray-100:#f3f4f6;--gray-200:#e5e7eb;--gray-300:#d1d5db;
+  --gray-400:#9ca3af;--gray-500:#6b7280;--gray-600:#4b5563;--gray-700:#374151;
+  --gray-800:#1f2937;--gray-900:#111827;
+  --radius:8px;--radius-lg:12px;--radius-xl:16px;
+  --shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+  --shadow-lg:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
+  --font:'Noto Sans TC','Microsoft JhengHei',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);font-size:14px;background:#f0f4f9;color:var(--gray-800);min-height:100vh}
+/* Layout */
+.app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:#1a1f2e;color:#fff;flex-shrink:0;display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;z-index:100;overflow-y:auto}
+.sidebar-logo{padding:20px 16px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:10px}
+.sidebar-logo .logo-icon{width:36px;height:36px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.sidebar-logo h1{font-size:16px;font-weight:700;color:#fff}
+.sidebar-logo p{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px}
+.nav-section{padding:8px 0}
+.nav-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.3);padding:8px 16px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;border-radius:0;transition:all .15s;color:rgba(255,255,255,.7);font-size:13px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item i{font-size:16px;width:18px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:600}
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:#fff;border-bottom:1px solid var(--gray-200);padding:0 24px;height:56px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:16px;font-weight:600;flex:1}
+.content{padding:24px;flex:1}
+/* Cards */
+.card{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:20px;margin-bottom:16px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card-title i{color:var(--primary)}
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);text-align:center;cursor:pointer;transition:transform .15s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-number{font-size:28px;font-weight:700;line-height:1}
+.stat-label{font-size:12px;color:var(--gray-500);margin-top:4px}
+.stat-card.total .stat-number{color:var(--primary)}
+.stat-card.safe .stat-number{color:var(--success)}
+.stat-card.warning .stat-number{color:var(--warning)}
+.stat-card.danger .stat-number{color:#ea580c}
+.stat-card.expired .stat-number{color:var(--danger)}
+.stat-card.total{border-top:3px solid var(--primary)}
+.stat-card.safe{border-top:3px solid var(--success)}
+.stat-card.warning{border-top:3px solid var(--warning)}
+.stat-card.danger{border-top:3px solid #ea580c}
+.stat-card.expired{border-top:3px solid var(--danger)}
+/* Table */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-lg)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--gray-50);padding:10px 12px;text-align:left;font-weight:600;color:var(--gray-600);border-bottom:1px solid var(--gray-200);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--gray-100);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--gray-50)}
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-safe{background:var(--success-light);color:var(--success)}
+.badge-warning{background:var(--warning-light);color:var(--warning)}
+.badge-danger{background:#ffedd5;color:#ea580c}
+.badge-expired{background:var(--danger-light);color:var(--danger)}
+.badge-blue{background:var(--primary-light);color:var(--primary)}
+.badge-gray{background:var(--gray-100);color:var(--gray-600)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius);border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;font-family:var(--font)}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{background:#15803d}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn-outline{background:#fff;color:var(--gray-700);border:1px solid var(--gray-300)}
+.btn-outline:hover{background:var(--gray-50);border-color:var(--gray-400)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{padding:7px;border-radius:var(--radius)}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+/* Forms */
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.form-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group.full{grid-column:1/-1}
+label{font-size:12px;font-weight:600;color:var(--gray-600)}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:13px;font-family:var(--font);transition:border-color .15s;background:#fff;color:var(--gray-800)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,95,168,.1)}
+input[type=checkbox]{width:auto;cursor:pointer}
+textarea{resize:vertical;min-height:80px}
+.checkbox-group{display:flex;flex-wrap:wrap;gap:8px}
+.checkbox-item{display:flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:12px;transition:all .15s}
+.checkbox-item:hover{border-color:var(--primary);background:var(--primary-light)}
+.checkbox-item input{margin:0}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:#fff;border-radius:var(--radius-xl);max-width:900px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--shadow-lg)}
+.modal-sm{max-width:480px}
+.modal-lg{max-width:1100px}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-size:16px;font-weight:700}
+.modal-body{padding:24px;overflow-y:auto;flex:1}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+/* Plate */
+.plate{display:inline-block;background:#1a1a1a;color:#f5c518;padding:4px 10px;border-radius:6px;font-weight:700;font-size:13px;letter-spacing:.05em;cursor:pointer;border:2px solid #f5c518}
+.plate:hover{background:#333}
+/* Vehicle type icons */
+.vtype{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.vtype-car{background:#dbeafe;color:#1d4ed8}
+.vtype-moto{background:#d1fae5;color:#065f46}
+.vtype-other{background:#e9d5ff;color:#6b21a8}
+/* Filters */
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.filter-bar input,.filter-bar select{width:auto;min-width:150px}
+/* Tags */
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:var(--gray-100);color:var(--gray-600)}
+.tag-vip{background:#fef3c7;color:#92400e}
+.tag-normal{background:#e0f2fe;color:#075985}
+.tag-potential{background:#f3e8ff;color:#6b21a8}
+/* Month grid */
+.month-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.month-card{background:#fff;border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);cursor:pointer;transition:all .15s;border:2px solid transparent}
+.month-card:hover{border-color:var(--primary);transform:translateY(-2px)}
+.month-card .month-name{font-size:13px;font-weight:600;color:var(--gray-600)}
+.month-card .month-count{font-size:26px;font-weight:700;color:var(--primary);margin:4px 0}
+.month-card .month-bar{height:4px;border-radius:2px;background:var(--gray-200);margin-top:8px}
+.month-card .month-bar-fill{height:100%;border-radius:2px;background:var(--primary)}
+/* Notification badge */
+.notif-dot{position:relative}
+.notif-dot::after{content:'';position:absolute;top:-2px;right:-2px;width:8px;height:8px;background:var(--danger);border-radius:50%;border:2px solid #1a1f2e}
+/* Calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-header{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px}
+.cal-day-name{text-align:center;font-size:12px;font-weight:600;color:var(--gray-500);padding:4px}
+.cal-cell{min-height:70px;background:#fff;border:1px solid var(--gray-200);border-radius:4px;padding:4px;position:relative;cursor:pointer;transition:background .1s}
+.cal-cell:hover{background:var(--primary-light)}
+.cal-cell.other-month{background:var(--gray-50)}
+.cal-cell.today{border:2px solid var(--primary)}
+.cal-date{font-size:12px;font-weight:600;color:var(--gray-700)}
+.cal-event{font-size:10px;padding:1px 4px;border-radius:3px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.cal-nav h2{flex:1;text-align:center;font-size:16px;font-weight:600}
+/* Charts area */
+.chart-wrap{position:relative;height:220px}
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--gray-200);margin-bottom:20px}
+.tab{padding:10px 18px;cursor:pointer;font-size:13px;font-weight:500;color:var(--gray-500);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.tab:hover{color:var(--primary)}
+/* Section header */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+/* Timeline */
+.timeline-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--gray-100)}
+.timeline-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.timeline-content p{font-size:13px}
+.timeline-content span{font-size:11px;color:var(--gray-500)}
+/* Responsive */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .main{margin-left:0}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .month-grid{grid-template-columns:repeat(2,1fr)}
+  .form-grid{grid-template-columns:1fr}
+  .form-grid-3{grid-template-columns:1fr}
+}
+/* Progress bar */
+.progress{height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden}
+.progress-bar{height:100%;border-radius:3px;transition:width .3s}
+/* Search highlight */
+mark{background:#fef08a;color:inherit;border-radius:2px;padding:0 2px}
+/* Print */
+@media print{.sidebar,.topbar,.btn-group,.modal-footer{display:none}.main{margin-left:0}.content{padding:0}}
+/* Animation */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .2s ease-out}
+/* Tooltip */
+.tooltip{position:relative}
+.tooltip-text{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--gray-800);color:#fff;font-size:11px;padding:4px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:200}
+.tooltip:hover .tooltip-text{opacity:1}
+.family-badge{background:#fef9c3;color:#713f12;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600}
+.action-btn{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;color:var(--gray-500);font-size:14px;transition:all .15s}
+.action-btn:hover{background:var(--gray-100);color:var(--primary)}
+.renewal-badge{background:var(--success-light);color:var(--success);padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600}
+.page{display:none}.page.active{display:block}
+.sidebar-mobile-toggle{display:none;position:fixed;bottom:20px;right:20px;z-index:200;width:48px;height:48px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;font-size:20px;box-shadow:var(--shadow-lg)}
+@media(max-width:768px){.sidebar-mobile-toggle{display:flex;align-items:center;justify-content:center}}
+</style>
+</head>
+<body>
+<div class="app">
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="ti ti-shield-check"></i></div>
+    <div><h1>車險管家</h1><p>保險管理系統</p></div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">主要功能</div>
+    <button class="nav-item active" onclick="goPage('dashboard')"><i class="ti ti-layout-dashboard"></i>儀表板</button>
+    <button class="nav-item" onclick="goPage('vehicles')"><i class="ti ti-car"></i>車輛管理</button>
+    <button class="nav-item" onclick="goPage('monthly')"><i class="ti ti-calendar-month"></i>月份統計</button>
+    <button class="nav-item" onclick="goPage('calendar')"><i class="ti ti-calendar-event"></i>行事曆</button>
+    <button class="nav-item" onclick="goPage('renewal')"><i class="ti ti-refresh"></i>續保追蹤</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">報表與通知</div>
+    <button class="nav-item notif-dot" onclick="goPage('notifications')" id="notif-nav"><i class="ti ti-bell"></i>通知中心</button>
+    <button class="nav-item" onclick="goPage('reports')"><i class="ti ti-chart-bar"></i>統計報表</button>
+    <button class="nav-item" onclick="goPage('families')"><i class="ti ti-users"></i>家庭群組</button>
+    <button class="nav-item" onclick="goPage('customers')"><i class="ti ti-user-circle"></i>客戶管理</button>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-title">系統設定</div>
+    <button class="nav-item" onclick="goPage('admin')"><i class="ti ti-settings-2"></i>後台管理</button>
+    <button class="nav-item" onclick="goPage('templates')"><i class="ti ti-message-2"></i>訊息模板</button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+<div class="topbar">
+  <div class="topbar-title" id="page-title">儀表板</div>
+  <div class="btn-group">
+    <button class="btn btn-outline btn-sm" onclick="openAddVehicle()"><i class="ti ti-plus"></i>新增車輛</button>
+    <button class="btn btn-outline btn-sm" onclick="exportAll('excel')"><i class="ti ti-file-spreadsheet"></i>匯出Excel</button>
+    <button class="btn btn-outline btn-sm" onclick="exportAll('pdf')"><i class="ti ti-file-pdf"></i>匯出PDF</button>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ====== DASHBOARD ====== -->
+<div class="page active" id="page-dashboard">
+  <div class="stats-grid" id="stats-grid"></div>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><i class="ti ti-chart-bar"></i>年度保費趨勢</div></div>
+      <div class="chart-wrap"><canvas id="chart-premium"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><i class="ti ti-chart-pie"></i>車輛類型分布</div></div>
+      <div class="chart-wrap"><canvas id="chart-types"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="ti ti-alert-circle" style="color:var(--danger)"></i>即將到期車輛（40天內）</div>
+      <div class="btn-group">
+        <button class="btn btn-sm btn-outline" onclick="batchNotify()"><i class="ti ti-send"></i>批次通知</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th><input type="checkbox" id="check-all" onchange="toggleAll(this)"></th>
+        <th>車牌</th><th>車型</th><th>到期日</th><th>剩餘天數</th>
+        <th>保險公司</th><th>被保人</th><th>聯絡人</th><th>合計保費</th><th>操作</th>
+      </tr></thead>
+      <tbody id="expiring-list"></tbody>
+    </table></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><i class="ti ti-building"></i>保險公司連結</div></div>
+      <div id="insurer-links" style="display:grid;gap:8px"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><i class="ti ti-bell"></i>最新通知</div></div>
+      <div id="recent-notifs"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== VEHICLES ====== -->
+<div class="page" id="page-vehicles">
+  <div class="filter-bar">
+    <input type="text" placeholder="🔍 搜尋車牌/被保人/聯絡人" id="v-search" oninput="renderVehicles()">
+    <select id="v-type" onchange="renderVehicles()">
+      <option value="">全部類型</option><option value="car">汽車</option>
+      <option value="moto">機車</option><option value="other">其他</option>
+    </select>
+    <select id="v-insurer" onchange="renderVehicles()"><option value="">全部保險公司</option></select>
+    <select id="v-status" onchange="renderVehicles()">
+      <option value="">全部狀態</option><option value="safe">安全</option>
+      <option value="warning">即將到期</option><option value="danger">緊急</option><option value="expired">已過期</option>
+    </select>
+    <select id="v-tag" onchange="renderVehicles()"><option value="">全部標籤</option></select>
+    <button class="btn btn-outline btn-sm" onclick="exportSelected()"><i class="ti ti-download"></i>匯出勾選</button>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th><input type="checkbox" onchange="toggleAll(this,'v-check')"></th>
+      <th>類型</th><th>車牌</th><th>到期日</th><th>狀態</th>
+      <th>保險公司</th><th>險種</th><th>被保人</th><th>聯絡人</th>
+      <th>強制險</th><th>商業險</th><th>合計</th><th>標籤</th><th>操作</th>
+    </tr></thead>
+    <tbody id="vehicle-list"></tbody>
+  </table></div>
+</div>
+
+<!-- ====== MONTHLY ====== -->
+<div class="page" id="page-monthly">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <button class="btn btn-outline btn-sm" onclick="monthNav(-1)"><i class="ti ti-chevron-left"></i></button>
+    <h2 style="font-size:18px;font-weight:700" id="year-display">2025年</h2>
+    <button class="btn btn-outline btn-sm" onclick="monthNav(1)"><i class="ti ti-chevron-right"></i></button>
+    <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="exportMonthly()"><i class="ti ti-file-spreadsheet"></i>匯出月份統計</button>
+  </div>
+  <div class="month-grid" id="month-grid"></div>
+</div>
+
+<!-- ====== CALENDAR ====== -->
+<div class="page" id="page-calendar">
+  <div class="card">
+    <div class="cal-nav">
+      <button class="btn btn-outline btn-sm" onclick="calNav(-1)"><i class="ti ti-chevron-left"></i></button>
+      <h2 id="cal-title"></h2>
+      <button class="btn btn-outline btn-sm" onclick="calNav(1)"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="cal-header">
+      <div class="cal-day-name">日</div><div class="cal-day-name">一</div><div class="cal-day-name">二</div>
+      <div class="cal-day-name">三</div><div class="cal-day-name">四</div><div class="cal-day-name">五</div><div class="cal-day-name">六</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+</div>
+
+<!-- ====== RENEWAL ====== -->
+<div class="page" id="page-renewal">
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px" id="renewal-stats"></div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchRenewalTab('pending',this)">未續保</div>
+    <div class="tab" onclick="switchRenewalTab('completed',this)">已續保</div>
+    <div class="tab" onclick="switchRenewalTab('history',this)">續保歷史</div>
+  </div>
+  <div id="renewal-content"></div>
+</div>
+
+<!-- ====== NOTIFICATIONS ====== -->
+<div class="page" id="page-notifications">
+  <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center">
+    <button class="btn btn-primary btn-sm" onclick="markAllRead()"><i class="ti ti-check"></i>全部已讀</button>
+    <select id="notif-filter" onchange="renderNotifications()">
+      <option value="all">全部</option><option value="unread">未讀</option>
+      <option value="40days">40天提醒</option><option value="7days">7天緊急</option>
+      <option value="expired">已過期</option>
+    </select>
+    <span id="unread-count" style="font-size:13px;color:var(--gray-500)"></span>
+  </div>
+  <div id="notif-list"></div>
+</div>
+
+<!-- ====== REPORTS ====== -->
+<div class="page" id="page-reports">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><i class="ti ti-chart-bar"></i>年度保費支出</div></div>
+      <div class="chart-wrap"><canvas id="chart-annual"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><i class="ti ti-chart-pie"></i>各車保費佔比</div></div>
+      <div class="chart-wrap"><canvas id="chart-pie"></canvas></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-header"><div class="card-title"><i class="ti ti-trending-up"></i>保費趨勢（歷年）</div></div>
+    <div class="chart-wrap"><canvas id="chart-trend"></canvas></div>
+  </div>
+</div>
+
+<!-- ====== FAMILIES ====== -->
+<div class="page" id="page-families">
+  <div class="section-header">
+    <div class="section-title"><i class="ti ti-users"></i>家庭群組管理</div>
+    <button class="btn btn-primary btn-sm" onclick="openAddFamily()"><i class="ti ti-plus"></i>新增家庭</button>
+  </div>
+  <div id="family-list" style="display:grid;gap:12px"></div>
+</div>
+
+<!-- ====== CUSTOMERS ====== -->
+<div class="page" id="page-customers">
+  <div class="section-header">
+    <div class="section-title"><i class="ti ti-user-circle"></i>客戶管理</div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" placeholder="🔍 搜尋客戶" id="cust-search" oninput="renderCustomers()">
+    <select id="cust-group" onchange="renderCustomers()">
+      <option value="">全部分組</option><option value="VIP">VIP</option>
+      <option value="一般">一般</option><option value="潛在">潛在</option>
+    </select>
+  </div>
+  <div id="customer-list" style="display:grid;gap:12px"></div>
+</div>
+
+<!-- ====== ADMIN ====== -->
+<div class="page" id="page-admin">
+  <div class="tabs">
+    <div class="tab active" onclick="switchAdminTab('insurer',this)">保險公司設定</div>
+    <div class="tab" onclick="switchAdminTab('reminder',this)">提醒設定</div>
+    <div class="tab" onclick="switchAdminTab('types',this)">類型管理</div>
+    <div class="tab" onclick="switchAdminTab('data',this)">資料管理</div>
+  </div>
+  <div id="admin-content"></div>
+</div>
+
+<!-- ====== TEMPLATES ====== -->
+<div class="page" id="page-templates">
+  <div class="section-header">
+    <div class="section-title"><i class="ti ti-message-2"></i>訊息模板管理</div>
+    <button class="btn btn-primary btn-sm" onclick="openAddTemplate()"><i class="ti ti-plus"></i>新增模板</button>
+  </div>
+  <div id="template-list" style="display:grid;gap:12px"></div>
+</div>
+
+</div><!-- content -->
+</div><!-- main -->
+</div><!-- app -->
+
+<!-- ====== VEHICLE MODAL ====== -->
+<div class="modal-overlay" id="vehicle-modal" style="display:none">
+<div class="modal modal-lg">
+  <div class="modal-header">
+    <div class="modal-title" id="vmodal-title">新增車輛</div>
+    <button class="btn btn-icon btn-outline" onclick="closeModal('vehicle-modal')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="modal-body">
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="btn btn-sm" id="vtab-basic" onclick="switchVTab('basic')" style="background:var(--primary);color:#fff">基本資料</button>
+    <button class="btn btn-sm btn-outline" id="vtab-coverage" onclick="switchVTab('coverage')">險種保費</button>
+    <button class="btn btn-sm btn-outline" id="vtab-people" onclick="switchVTab('people')">相關人員</button>
+    <button class="btn btn-sm btn-outline" id="vtab-notes" onclick="switchVTab('notes')">備註標籤</button>
+  </div>
+
+  <!-- Basic Tab -->
+  <div id="vtab-content-basic">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>標籤</label>
+        <input type="text" id="v-label-input" placeholder="輸入標籤（逗號分隔）">
+      </div>
+      <div class="form-group">
+        <label>車輛類型</label>
+        <select id="v-type-sel">
+          <option value="car">🚗 汽車</option>
+          <option value="moto">🏍 機車</option>
+          <option value="other">🚐 其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>車牌號碼 *</label>
+        <input type="text" id="v-plate" placeholder="例：ABC-1234" required>
+      </div>
+      <div class="form-group">
+        <label>保險公司 *</label>
+        <select id="v-insurer-sel">
+          <option>華南</option><option>和泰</option><option>南山</option>
+          <option>兆豐</option><option>國泰</option><option>富邦</option>
+          <option>新光</option><option>新安東京</option><option>臺灣</option>
+          <option>中信</option><option>第一</option><option>旺旺</option>
+          <option>泰安</option><option>明台</option><option>安達</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>到期日 *</label>
+        <input type="date" id="v-expire">
+      </div>
+      <div class="form-group">
+        <label>客戶分組</label>
+        <select id="v-group-sel">
+          <option value="一般">一般</option><option value="VIP">VIP</option>
+          <option value="潛在">潛在</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>家庭群組</label>
+        <select id="v-family-sel"><option value="">無</option></select>
+      </div>
+      <div class="form-group">
+        <label>提醒時段</label>
+        <input type="time" id="v-remind-time" value="09:00">
+      </div>
+    </div>
+  </div>
+
+  <!-- Coverage Tab -->
+  <div id="vtab-content-coverage" style="display:none">
+    <p style="font-size:12px;color:var(--gray-500);margin-bottom:12px">請勾選險種並輸入保額</p>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px" id="coverage-list"></div>
+    <div style="background:var(--gray-50);border-radius:var(--radius);padding:16px;margin-top:12px">
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label>強制險保費 (NT$)</label>
+          <input type="number" id="v-premium-compulsory" placeholder="0" oninput="calcTotal()">
+        </div>
+        <div class="form-group">
+          <label>商業險保費 (NT$)</label>
+          <input type="number" id="v-premium-commercial" placeholder="0" oninput="calcTotal()">
+        </div>
+        <div class="form-group">
+          <label>合計保費 (NT$)</label>
+          <input type="number" id="v-premium-total" placeholder="0" style="background:#fff;font-weight:700;color:var(--danger)" readonly>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- People Tab -->
+  <div id="vtab-content-people" style="display:none">
+    <div style="display:grid;gap:16px">
+      <div style="border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px">
+        <div style="font-weight:600;margin-bottom:12px;color:var(--primary)">聯絡人</div>
+        <div class="form-grid">
+          <div class="form-group"><label>姓名</label><input type="text" id="p-contact-name"></div>
+          <div class="form-group"><label>電話</label><input type="text" id="p-contact-phone"></div>
+          <div class="form-group"><label>LINE</label><input type="text" id="p-contact-line"></div>
+        </div>
+      </div>
+      <div style="border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px">
+        <div style="font-weight:600;margin-bottom:8px;color:var(--primary)">要保人</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <label class="checkbox-item"><input type="checkbox" onchange="copyPerson('insured','contact')">同聯絡人</label>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>姓名</label><input type="text" id="p-insured-name"></div>
+          <div class="form-group"><label>電話</label><input type="text" id="p-insured-phone"></div>
+        </div>
+      </div>
+      <div style="border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px">
+        <div style="font-weight:600;margin-bottom:8px;color:var(--primary)">被保人</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <label class="checkbox-item"><input type="checkbox" onchange="copyPerson('assured','contact')">同聯絡人</label>
+          <label class="checkbox-item"><input type="checkbox" onchange="copyPerson('assured','insured')">同要保人</label>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>姓名</label><input type="text" id="p-assured-name"></div>
+          <div class="form-group"><label>電話</label><input type="text" id="p-assured-phone"></div>
+        </div>
+      </div>
+      <div style="border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px">
+        <div style="font-weight:600;margin-bottom:8px;color:var(--primary)">使用人</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <label class="checkbox-item"><input type="checkbox" onchange="copyPerson('user','contact')">同聯絡人</label>
+          <label class="checkbox-item"><input type="checkbox" onchange="copyPerson('user','insured')">同要保人</label>
+          <label class="checkbox-item"><input type="checkbox" onchange="copyPerson('user','assured')">同被保人</label>
+        </div>
+        <div class="form-grid">
+          <div class="form-group"><label>姓名</label><input type="text" id="p-user-name"></div>
+          <div class="form-group"><label>電話</label><input type="text" id="p-user-phone"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes Tab -->
+  <div id="vtab-content-notes" style="display:none">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>備註</label>
+        <textarea id="v-notes" placeholder="記錄特殊事項、理賠紀錄等..."></textarea>
+      </div>
+      <div class="form-group full">
+        <label>自訂提醒訊息</label>
+        <textarea id="v-custom-msg" placeholder="輸入專屬提醒訊息..."></textarea>
+      </div>
+    </div>
+  </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal('vehicle-modal')">取消</button>
+    <button class="btn btn-primary" onclick="saveVehicle()"><i class="ti ti-device-floppy"></i>儲存</button>
+  </div>
+</div>
+</div>
+
+<!-- VEHICLE DETAIL MODAL -->
+<div class="modal-overlay" id="detail-modal" style="display:none">
+<div class="modal modal-lg">
+  <div class="modal-header">
+    <div class="modal-title" id="detail-title">車輛詳細資料</div>
+    <button class="btn btn-icon btn-outline" onclick="closeModal('detail-modal')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="modal-body" id="detail-body"></div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal('detail-modal')">關閉</button>
+    <button class="btn btn-success" id="renewal-btn"><i class="ti ti-refresh"></i>辦理續保</button>
+    <button class="btn btn-primary" id="edit-btn"><i class="ti ti-edit"></i>編輯</button>
+  </div>
+</div>
+</div>
+
+<!-- MONTH DETAIL MODAL -->
+<div class="modal-overlay" id="month-modal" style="display:none">
+<div class="modal modal-lg">
+  <div class="modal-header">
+    <div class="modal-title" id="month-modal-title">月份詳情</div>
+    <button class="btn btn-icon btn-outline" onclick="closeModal('month-modal')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div class="filter-bar" style="margin-bottom:12px">
+      <input type="text" placeholder="🔍 搜尋車牌/被保人" id="month-search" oninput="filterMonthVehicles()">
+      <select id="month-status-filter" onchange="filterMonthVehicles()">
+        <option value="">全部狀態</option><option value="safe">安全</option>
+        <option value="warning">即將到期</option><option value="danger">緊急</option><option value="expired">已過期</option>
+      </select>
+    </div>
+    <div id="month-vehicle-list"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal('month-modal')">關閉</button>
+    <button class="btn btn-primary" onclick="exportMonthDetail()"><i class="ti ti-file-spreadsheet"></i>匯出</button>
+  </div>
+</div>
+</div>
+
+<!-- SEND MSG MODAL -->
+<div class="modal-overlay" id="msg-modal" style="display:none">
+<div class="modal modal-sm">
+  <div class="modal-header">
+    <div class="modal-title">發送客戶通知</div>
+    <button class="btn btn-icon btn-outline" onclick="closeModal('msg-modal')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn btn-sm btn-outline" onclick="applyTemplate('formal')">正式</button>
+      <button class="btn btn-sm btn-outline" onclick="applyTemplate('friendly')">親切</button>
+      <button class="btn btn-sm btn-outline" onclick="applyTemplate('short')">簡短</button>
+    </div>
+    <textarea id="msg-content" style="min-height:150px;width:100%"></textarea>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="copyMsg()"><i class="ti ti-copy"></i>複製</button>
+    <button class="btn btn-success" onclick="shareViaLine()"><i class="ti ti-brand-line"></i>LINE分享</button>
+  </div>
+</div>
+</div>
+
+<!-- FAMILY MODAL -->
+<div class="modal-overlay" id="family-modal" style="display:none">
+<div class="modal modal-sm">
+  <div class="modal-header">
+    <div class="modal-title">新增家庭群組</div>
+    <button class="btn btn-icon btn-outline" onclick="closeModal('family-modal')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div class="form-group"><label>家庭名稱</label><input type="text" id="fam-name" placeholder="例：王家"></div>
+    <div class="form-group" style="margin-top:12px"><label>備註</label><textarea id="fam-note"></textarea></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal('family-modal')">取消</button>
+    <button class="btn btn-primary" onclick="saveFamily()">儲存</button>
+  </div>
+</div>
+</div>
+
+<!-- RENEWAL MODAL -->
+<div class="modal-overlay" id="renewal-modal" style="display:none">
+<div class="modal modal-sm">
+  <div class="modal-header">
+    <div class="modal-title">辦理續保</div>
+    <button class="btn btn-icon btn-outline" onclick="closeModal('renewal-modal')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="modal-body">
+    <div class="form-group"><label>新到期日</label><input type="date" id="renewal-date"></div>
+    <div class="form-group" style="margin-top:12px"><label>強制險保費 (NT$)</label><input type="number" id="renewal-compulsory"></div>
+    <div class="form-group" style="margin-top:12px"><label>商業險保費 (NT$)</label><input type="number" id="renewal-commercial"></div>
+    <div class="form-group" style="margin-top:12px"><label>合計保費 (NT$)</label><input type="number" id="renewal-total" readonly style="font-weight:700;color:var(--danger)"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal('renewal-modal')">取消</button>
+    <button class="btn btn-success" onclick="confirmRenewal()"><i class="ti ti-check"></i>確認續保</button>
+  </div>
+</div>
+</div>
+
+<button class="sidebar-mobile-toggle" onclick="toggleSidebar()"><i class="ti ti-menu-2"></i></button>
+
+<script>
+// ============ DATA STORE ============
+const STORAGE_KEY = 'car_insurance_mgr_v2';
+let db = loadDB();
+
+function loadDB(){
+  try{
+    const s=localStorage.getItem(STORAGE_KEY);
+    if(s) return JSON.parse(s);
+  }catch(e){}
+  return getDefaultDB();
+}
+
+function getDefaultDB(){
+  return {
+    vehicles:[
+      {id:'v1',type:'car',plate:'ABC-1234',insurer:'和泰',expire:'2025-08-15',
+       premiumCompulsory:658,premiumCommercial:3530,premiumTotal:4188,
+       contact:{name:'王大明',phone:'0912-345-678',line:'@wang'},
+       insured:{name:'王大明',phone:'0912-345-678'},
+       assured:{name:'王大明',phone:'0912-345-678'},
+       userPerson:{name:'王大明',phone:'0912-345-678'},
+       coverages:['A','B','C'],coverageAmounts:{},
+       notes:'正常客戶',customMsg:'',label:'VIP',group:'VIP',
+       familyId:'f1',remindTime:'09:00',
+       renewalHistory:[{date:'2024-08-15',comp:658,comm:3200,total:3858}]
+      },
+      {id:'v2',type:'moto',plate:'XYZ-5678',insurer:'富邦',expire:'2025-07-20',
+       premiumCompulsory:858,premiumCommercial:1200,premiumTotal:2058,
+       contact:{name:'李小花',phone:'0922-111-222',line:'@lee'},
+       insured:{name:'李小花',phone:'0922-111-222'},
+       assured:{name:'李小花',phone:'0922-111-222'},
+       userPerson:{name:'李小花',phone:'0922-111-222'},
+       coverages:['A','G'],coverageAmounts:{},
+       notes:'',customMsg:'',label:'一般',group:'一般',
+       familyId:'',remindTime:'09:00',
+       renewalHistory:[]
+      },
+      {id:'v3',type:'car',plate:'QWE-9012',insurer:'國泰',expire:'2025-12-30',
+       premiumCompulsory:658,premiumCommercial:8000,premiumTotal:8658,
+       contact:{name:'張志明',phone:'0933-444-555',line:''},
+       insured:{name:'張志明',phone:'0933-444-555'},
+       assured:{name:'張志明',phone:'0933-444-555'},
+       userPerson:{name:'張志明',phone:'0933-444-555'},
+       coverages:['A','B','C','H','W'],coverageAmounts:{},
+       notes:'高保額客戶',customMsg:'',label:'VIP',group:'VIP',
+       familyId:'f1',remindTime:'10:00',
+       renewalHistory:[]
+      }
+    ],
+    families:[{id:'f1',name:'王家',note:'家庭群組'}],
+    notifications:[
+      {id:'n1',type:'40days',vehicleId:'v1',message:'ABC-1234 將於40天後到期',date:new Date().toISOString(),read:false},
+      {id:'n2',type:'7days',vehicleId:'v2',message:'XYZ-5678 將於7天後到期！',date:new Date().toISOString(),read:false}
+    ],
+    templates:[
+      {id:'t1',name:'正式模板',content:'親愛的客戶，您的車牌 {plate} 保險將於 {date} 到期，敬請儘速安排續保事宜。如需協助請聯繫我們，謝謝。'},
+      {id:'t2',name:'親切模板',content:'嗨！提醒您 {plate} 的車險快到期囉（{date}），方便的話來幫您辦理續保，有任何問題歡迎聯絡我 😊'},
+      {id:'t3',name:'簡短模板',content:'您好，{plate} 車險 {date} 到期，請盡快續保。'}
+    ],
+    settings:{
+      remind1:40,remind2:7,
+      insurerLinks:[
+        {insurer:'和泰',website:'',rescue:'',report:'',claim:''},
+        {insurer:'富邦',website:'',rescue:'',report:'',claim:''}
+      ]
+    },
+    customTypes:['露營車','商用車'],
+    monthViewYear: new Date().getFullYear(),
+    calYear: new Date().getFullYear(),
+    calMonth: new Date().getMonth()
+  };
+}
+
+function saveDB(){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(db));}catch(e){}
+}
+
+// ============ UTILS ============
+function uid(){return 'v'+Date.now()+Math.random().toString(36).substr(2,5)}
+function fmtDate(d){if(!d)return '';try{return new Date(d).toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'});}catch(e){return d}}
+function daysLeft(d){if(!d)return 9999;const diff=new Date(d)-new Date();return Math.ceil(diff/(1000*60*60*24))}
+function getStatus(d){const dl=daysLeft(d);if(dl<0)return 'expired';if(dl<=7)return 'danger';if(dl<=40)return 'warning';return 'safe'}
+function statusBadge(d){const s=getStatus(d),dl=daysLeft(d);const map={safe:['badge-safe','安全'],warning:['badge-warning','即將到期'],danger:['badge-danger','緊急'],expired:['badge-expired','已過期']};const[cls,lbl]=map[s];return `<span class="badge ${cls}">${lbl}（${dl<0?Math.abs(dl)+'天前':dl+'天'}）</span>`}
+function typeIcon(t){const m={car:'🚗',moto:'🏍',other:'🚐'};return m[t]||'🚗'}
+function typeClass(t){const m={car:'vtype-car',moto:'vtype-moto',other:'vtype-other'};return m[t]||'vtype-car'}
+function fmtMoney(n){return n?'NT$'+Number(n).toLocaleString():'—'}
+function escHtml(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+// Coverage options
+const COVERAGES=[
+  {id:'A',name:'強制險'},{id:'B',name:'第三責任險'},{id:'C',name:'超額責任險'},
+  {id:'D',name:'單一駕駛人傷害險'},{id:'E',name:'兩車駕駛人傷害險'},{id:'F',name:'乘客險'},
+  {id:'G',name:'拖吊'},{id:'H',name:'竊盜'},{id:'I',name:'車體許可免追償'},
+  {id:'J',name:'車體全損無折舊'},{id:'K',name:'失竊免折舊'},{id:'L',name:'慰問金'},
+  {id:'M',name:'失能增額'},{id:'N',name:'刑事訴訟律師'},{id:'O',name:'代步車費用'},
+  {id:'Wa',name:'車體險甲式'},{id:'Wb',name:'車體險乙式'},{id:'Wc',name:'車體險丙式'},{id:'W15',name:'車體險15式'}
+];
+
+// ============ NAVIGATION ============
+let currentPage='dashboard';
+function goPage(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')===`goPage('${page}')`)n.classList.add('active')});
+  currentPage=page;
+  const titles={dashboard:'儀表板',vehicles:'車輛管理',monthly:'月份統計',calendar:'行事曆',renewal:'續保追蹤',notifications:'通知中心',reports:'統計報表',families:'家庭群組',customers:'客戶管理',admin:'後台管理',templates:'訊息模板'};
+  document.getElementById('page-title').textContent=titles[page]||page;
+  renderPage(page);
+}
+
+function renderPage(page){
+  if(page==='dashboard')renderDashboard();
+  else if(page==='vehicles')renderVehicles();
+  else if(page==='monthly')renderMonthly();
+  else if(page==='calendar')renderCalendar();
+  else if(page==='renewal')renderRenewal();
+  else if(page==='notifications')renderNotifications();
+  else if(page==='reports')renderReports();
+  else if(page==='families')renderFamilies();
+  else if(page==='customers')renderCustomers();
+  else if(page==='admin')renderAdmin();
+  else if(page==='templates')renderTemplates();
+}
+
+function toggleSidebar(){
+  const s=document.getElementById('sidebar');
+  s.style.transform=s.style.transform==='translateX(0px)'?'translateX(-100%)':'translateX(0px)';
+}
+
+// ============ DASHBOARD ============
+function renderDashboard(){
+  renderStats();
+  renderExpiringList();
+  renderInsurerLinks();
+  renderRecentNotifs();
+  setTimeout(renderDashboardCharts,100);
+}
+
+function renderStats(){
+  const vs=db.vehicles;
+  const total=vs.length;
+  const safe=vs.filter(v=>getStatus(v.expire)==='safe').length;
+  const warn=vs.filter(v=>getStatus(v.expire)==='warning').length;
+  const danger=vs.filter(v=>getStatus(v.expire)==='danger').length;
+  const expired=vs.filter(v=>getStatus(v.expire)==='expired').length;
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat-card total" onclick="filterByStatus('')"><div class="stat-number">${total}</div><div class="stat-label">總車輛數</div></div>
+    <div class="stat-card safe" onclick="filterByStatus('safe')"><div class="stat-number">${safe}</div><div class="stat-label">🟢 安全</div></div>
+    <div class="stat-card warning" onclick="filterByStatus('warning')"><div class="stat-number">${warn}</div><div class="stat-label">🟡 即將到期</div></div>
+    <div class="stat-card danger" onclick="filterByStatus('danger')"><div class="stat-number">${danger}</div><div class="stat-label">🔴 緊急</div></div>
+    <div class="stat-card expired" onclick="filterByStatus('expired')"><div class="stat-number">${expired}</div><div class="stat-label">⚫ 已過期</div></div>
+  `;
+}
+
+function filterByStatus(s){
+  goPage('vehicles');
+  document.getElementById('v-status').value=s;
+  renderVehicles();
+}
+
+function renderExpiringList(){
+  const soon=db.vehicles.filter(v=>daysLeft(v.expire)<=40).sort((a,b)=>new Date(a.expire)-new Date(b.expire));
+  const tbl=document.getElementById('expiring-list');
+  if(!soon.length){tbl.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--gray-400);padding:20px">暫無即將到期的車輛</td></tr>';return}
+  tbl.innerHTML=soon.map(v=>`
+    <tr>
+      <td><input type="checkbox" class="exp-check" value="${v.id}"></td>
+      <td>${typeIcon(v.type)}</td>
+      <td><span class="plate" onclick="openDetail('${v.id}')">${escHtml(v.plate)}</span></td>
+      <td>${fmtDate(v.expire)}</td>
+      <td>${statusBadge(v.expire)}</td>
+      <td>${escHtml(v.insurer)}</td>
+      <td>${escHtml(v.assured?.name)}</td>
+      <td>${escHtml(v.contact?.name)}</td>
+      <td style="color:var(--danger);font-weight:600">${fmtMoney(v.premiumTotal)}</td>
+      <td>
+        <div class="btn-group">
+          <button class="action-btn" onclick="openDetail('${v.id}')" title="詳情"><i class="ti ti-eye"></i></button>
+          <button class="action-btn" onclick="openRenewal('${v.id}')" title="續保"><i class="ti ti-refresh"></i></button>
+          <button class="action-btn" onclick="openSendMsg('${v.id}')" title="通知"><i class="ti ti-send"></i></button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function toggleAll(cb,cls='exp-check'){
+  document.querySelectorAll('.'+cls).forEach(c=>c.checked=cb.checked);
+}
+
+function batchNotify(){
+  const ids=[...document.querySelectorAll('.exp-check:checked')].map(c=>c.value);
+  if(!ids.length){alert('請先勾選要通知的車輛');return}
+  const msgs=ids.map(id=>{const v=db.vehicles.find(x=>x.id===id);if(!v)return '';const t=db.templates[1]||db.templates[0];return t.content.replace('{plate}',v.plate).replace('{date}',fmtDate(v.expire));}).filter(Boolean).join('\n\n---\n\n');
+  document.getElementById('msg-content').value=msgs;
+  document.getElementById('msg-modal').style.display='flex';
+}
+
+function renderInsurerLinks(){
+  const el=document.getElementById('insurer-links');
+  const links=db.settings.insurerLinks||[];
+  if(!links.length){el.innerHTML='<p style="color:var(--gray-400);font-size:13px">尚未設定保險公司連結，請至後台管理設定。</p>';return}
+  el.innerHTML=links.filter(l=>l.insurer).map(l=>`
+    <div style="border:1px solid var(--gray-200);border-radius:var(--radius);padding:12px">
+      <div style="font-weight:600;margin-bottom:8px">${escHtml(l.insurer)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${l.website?`<a href="${l.website}" target="_blank" class="btn btn-sm btn-outline"><i class="ti ti-world"></i>官網</a>`:''}
+        ${l.rescue?`<a href="${l.rescue}" target="_blank" class="btn btn-sm btn-outline"><i class="ti ti-truck"></i>救援</a>`:''}
+        ${l.report?`<a href="${l.report}" target="_blank" class="btn btn-sm btn-outline"><i class="ti ti-phone"></i>通報</a>`:''}
+        ${l.claim?`<a href="${l.claim}" target="_blank" class="btn btn-sm btn-outline"><i class="ti ti-currency-dollar"></i>理賠</a>`:''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderRecentNotifs(){
+  const el=document.getElementById('recent-notifs');
+  const recent=db.notifications.slice(-5).reverse();
+  if(!recent.length){el.innerHTML='<p style="color:var(--gray-400);font-size:13px">暫無通知</p>';return}
+  el.innerHTML=recent.map(n=>`
+    <div class="timeline-item">
+      <div class="timeline-dot" style="background:${n.type==='7days'?'var(--danger)':n.type==='expired'?'var(--gray-700)':'var(--warning)'}"></div>
+      <div class="timeline-content">
+        <p>${escHtml(n.message)}</p>
+        <span>${fmtDate(n.date)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+let chartPremium=null,chartTypes=null;
+function renderDashboardCharts(){
+  const ctx1=document.getElementById('chart-premium');
+  const ctx2=document.getElementById('chart-types');
+  if(!ctx1||!ctx2)return;
+  const months=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const monthly=Array(12).fill(0);
+  db.vehicles.forEach(v=>{if(v.expire){const m=new Date(v.expire).getMonth();monthly[m]+=(v.premiumTotal||0)}});
+  if(chartPremium){chartPremium.destroy()}
+  chartPremium=new Chart(ctx1,{type:'bar',data:{labels:months,datasets:[{label:'保費 (NT$)',data:monthly,backgroundColor:'rgba(26,95,168,0.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+  const types={car:0,moto:0,other:0};
+  db.vehicles.forEach(v=>{types[v.type]=(types[v.type]||0)+1});
+  if(chartTypes){chartTypes.destroy()}
+  chartTypes=new Chart(ctx2,{type:'doughnut',data:{labels:['汽車','機車','其他'],datasets:[{data:[types.car,types.moto,types.other],backgroundColor:['#1a5fa8','#16a34a','#7c3aed']}]},options:{responsive:true,maintainAspectRatio:false}});
+}
+
+// ============ VEHICLES ============
+function renderVehicles(){
+  const search=(document.getElementById('v-search')||{}).value?.toLowerCase()||'';
+  const type=(document.getElementById('v-type')||{}).value||'';
+  const insurer=(document.getElementById('v-insurer')||{}).value||'';
+  const status=(document.getElementById('v-status')||{}).value||'';
+  const tag=(document.getElementById('v-tag')||{}).value||'';
+
+  // Populate insurer filter
+  const ins=[...new Set(db.vehicles.map(v=>v.insurer))];
+  const insSel=document.getElementById('v-insurer');
+  if(insSel){insSel.innerHTML='<option value="">全部保險公司</option>'+ins.map(i=>`<option value="${i}">${i}</option>`).join('');}
+
+  // Populate tag filter
+  const tags=[...new Set(db.vehicles.flatMap(v=>(v.label||'').split(',').map(t=>t.trim())))].filter(Boolean);
+  const tagSel=document.getElementById('v-tag');
+  if(tagSel){tagSel.innerHTML='<option value="">全部標籤</option>'+tags.map(t=>`<option value="${t}">${t}</option>`).join('');}
+
+  let vs=db.vehicles;
+  if(search)vs=vs.filter(v=>(v.plate+v.assured?.name+v.contact?.name+v.insurer).toLowerCase().includes(search));
+  if(type)vs=vs.filter(v=>v.type===type);
+  if(insurer)vs=vs.filter(v=>v.insurer===insurer);
+  if(status)vs=vs.filter(v=>getStatus(v.expire)===status);
+  if(tag)vs=vs.filter(v=>(v.label||'').split(',').map(t=>t.trim()).includes(tag));
+  vs.sort((a,b)=>new Date(a.expire)-new Date(b.expire));
+
+  const tbl=document.getElementById('vehicle-list');
+  if(!vs.length){tbl.innerHTML='<tr><td colspan="14" style="text-align:center;padding:30px;color:var(--gray-400)">查無資料</td></tr>';return}
+  tbl.innerHTML=vs.map(v=>{
+    const covNames=(v.coverages||[]).map(c=>{const f=COVERAGES.find(x=>x.id===c);return f?f.name:c}).join('、');
+    return `<tr>
+      <td><input type="checkbox" class="v-check" value="${v.id}"></td>
+      <td><div class="vtype ${typeClass(v.type)}">${typeIcon(v.type)}</div></td>
+      <td><span class="plate" onclick="openDetail('${v.id}')">${escHtml(v.plate)}</span></td>
+      <td>${fmtDate(v.expire)}</td>
+      <td>${statusBadge(v.expire)}</td>
+      <td>${escHtml(v.insurer)}</td>
+      <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(covNames)}">${escHtml(covNames)||'—'}</td>
+      <td>${escHtml(v.assured?.name)||'—'}</td>
+      <td>${escHtml(v.contact?.name)||'—'}</td>
+      <td>${fmtMoney(v.premiumCompulsory)}</td>
+      <td>${fmtMoney(v.premiumCommercial)}</td>
+      <td style="color:var(--danger);font-weight:600">${fmtMoney(v.premiumTotal)}</td>
+      <td>${(v.label||'').split(',').filter(Boolean).map(t=>`<span class="tag">${escHtml(t.trim())}</span>`).join(' ')}</td>
+      <td>
+        <div class="btn-group">
+          <button class="action-btn" onclick="openDetail('${v.id}')" title="詳情"><i class="ti ti-eye"></i></button>
+          <button class="action-btn" onclick="editVehicle('${v.id}')" title="編輯"><i class="ti ti-edit"></i></button>
+          <button class="action-btn" onclick="openRenewal('${v.id}')" title="續保"><i class="ti ti-refresh"></i></button>
+          <button class="action-btn" onclick="openSendMsg('${v.id}')" title="通知"><i class="ti ti-send"></i></button>
+          <button class="action-btn" onclick="deleteVehicle('${v.id}')" title="刪除" style="color:var(--danger)"><i class="ti ti-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function exportSelected(){
+  const ids=[...document.querySelectorAll('.v-check:checked')].map(c=>c.value);
+  if(!ids.length){alert('請先勾選要匯出的車輛');return}
+  const vs=db.vehicles.filter(v=>ids.includes(v.id));
+  exportExcel(vs,'勾選車輛');
+}
+
+// ============ MONTHLY ============
+function renderMonthly(){
+  const year=db.monthViewYear||new Date().getFullYear();
+  document.getElementById('year-display').textContent=year+'年';
+  const months=['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  const grid=document.getElementById('month-grid');
+  const maxCount=Math.max(1,...db.vehicles.map(v=>{const m=new Date(v.expire);return m.getFullYear()===year?1:0}).reduce((acc,v,i)=>{
+    // just get max count per month
+    return acc;
+  },[0]));
+  
+  grid.innerHTML=months.map((m,i)=>{
+    const vs=db.vehicles.filter(v=>{const d=new Date(v.expire);return d.getFullYear()===year&&d.getMonth()===i});
+    const pct=vs.length?Math.round(vs.length/Math.max(1,...months.map((_,j)=>db.vehicles.filter(v=>{const d=new Date(v.expire);return d.getFullYear()===year&&d.getMonth()===j}).length))*100):0;
+    return `<div class="month-card" onclick="openMonthDetail(${i},${year})">
+      <div class="month-name">${m}</div>
+      <div class="month-count">${vs.length}</div>
+      <div style="font-size:11px;color:var(--gray-400)">台車險到期</div>
+      <div class="month-bar"><div class="month-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function monthNav(d){db.monthViewYear=(db.monthViewYear||new Date().getFullYear())+d;renderMonthly()}
+
+let currentMonthData=[];
+function openMonthDetail(month,year){
+  const months=['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  currentMonthData=db.vehicles.filter(v=>{const d=new Date(v.expire);return d.getFullYear()===year&&d.getMonth()===month}).sort((a,b)=>new Date(a.expire)-new Date(b.expire));
+  document.getElementById('month-modal-title').textContent=`${year}年 ${months[month]} 車險到期（共 ${currentMonthData.length} 台）`;
+  document.getElementById('month-search').value='';
+  document.getElementById('month-status-filter').value='';
+  renderMonthVehicleList(currentMonthData);
+  document.getElementById('month-modal').style.display='flex';
+}
+
+function renderMonthVehicleList(vs){
+  const el=document.getElementById('month-vehicle-list');
+  if(!vs.length){el.innerHTML='<p style="text-align:center;color:var(--gray-400);padding:20px">無資料</p>';return}
+  el.innerHTML=vs.map(v=>`
+    <div class="card fade-in" style="margin-bottom:8px;cursor:pointer" onclick="openDetail('${v.id}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="vtype ${typeClass(v.type)}">${typeIcon(v.type)}</div>
+          <div>
+            <span class="plate" onclick="event.stopPropagation();openDetail('${v.id}')">${escHtml(v.plate)}</span>
+            <div style="font-size:12px;color:var(--gray-500);margin-top:2px">${escHtml(v.insurer)} ｜ 到期：${fmtDate(v.expire)}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          ${statusBadge(v.expire)}
+          <span style="font-size:12px">被保人：${escHtml(v.assured?.name)||'—'}</span>
+          <span style="font-size:12px">聯絡人：${escHtml(v.contact?.name)||'—'}</span>
+          <span style="color:var(--danger);font-weight:700;font-size:13px">${fmtMoney(v.premiumTotal)}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterMonthVehicles(){
+  const search=document.getElementById('month-search').value.toLowerCase();
+  const status=document.getElementById('month-status-filter').value;
+  let vs=currentMonthData;
+  if(search)vs=vs.filter(v=>(v.plate+v.assured?.name+v.contact?.name).toLowerCase().includes(search));
+  if(status)vs=vs.filter(v=>getStatus(v.expire)===status);
+  renderMonthVehicleList(vs);
+}
+
+function exportMonthDetail(){
+  exportExcel(currentMonthData,'月份統計');
+}
+
+function exportMonthly(){
+  const year=db.monthViewYear||new Date().getFullYear();
+  const vs=db.vehicles.filter(v=>new Date(v.expire).getFullYear()===year);
+  exportExcel(vs,year+'年度統計');
+}
+
+// ============ CALENDAR ============
+function renderCalendar(){
+  const year=db.calYear||new Date().getFullYear();
+  const month=db.calMonth||0;
+  const date=new Date(year,month,1);
+  document.getElementById('cal-title').textContent=year+'年'+(month+1)+'月';
+  const grid=document.getElementById('cal-grid');
+  const firstDay=date.getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const daysInPrevMonth=new Date(year,month,0).getDate();
+  const today=new Date();
+  let cells='';
+  let day=1;
+  for(let i=0;i<6;i++){
+    for(let j=0;j<7;j++){
+      const idx=i*7+j;
+      let cellDate,otherMonth=false;
+      if(idx<firstDay){cellDate=new Date(year,month-1,daysInPrevMonth-(firstDay-idx-1));otherMonth=true}
+      else if(day>daysInMonth){cellDate=new Date(year,month+1,day-daysInMonth);otherMonth=true;day++}
+      else{cellDate=new Date(year,month,day);day++}
+      const isToday=cellDate.toDateString()===today.toDateString();
+      const dateStr=cellDate.toISOString().slice(0,10);
+      const dayVehicles=db.vehicles.filter(v=>v.expire===dateStr);
+      cells+=`<div class="cal-cell${otherMonth?' other-month':''}${isToday?' today':''}">
+        <div class="cal-date">${cellDate.getDate()}</div>
+        ${dayVehicles.map(v=>`<div class="cal-event badge-${getStatus(v.expire)}" style="background:${getStatus(v.expire)==='safe'?'var(--success-light)':getStatus(v.expire)==='expired'?'var(--danger-light)':'var(--warning-light)'};color:${getStatus(v.expire)==='safe'?'var(--success)':getStatus(v.expire)==='expired'?'var(--danger)':'var(--warning)'}" onclick="openDetail('${v.id}')">${escHtml(v.plate)}</div>`).join('')}
+      </div>`;
+    }
+    if(day>daysInMonth&&i>=3)break;
+  }
+  grid.innerHTML=cells;
+}
+
+function calNav(d){
+  let m=(db.calMonth||0)+d;
+  let y=db.calYear||new Date().getFullYear();
+  if(m>11){m=0;y++}if(m<0){m=11;y--}
+  db.calMonth=m;db.calYear=y;
+  renderCalendar();
+}
+
+// ============ RENEWAL ============
+let renewalTab='pending';
+function renderRenewal(){
+  const pending=db.vehicles.filter(v=>daysLeft(v.expire)<=40&&daysLeft(v.expire)>=-30);
+  const completed=db.vehicles.filter(v=>v.renewalHistory?.length>0);
+  const stats=document.getElementById('renewal-stats');
+  stats.innerHTML=`
+    <div class="stat-card total"><div class="stat-number">${pending.length}</div><div class="stat-label">待續保</div></div>
+    <div class="stat-card safe"><div class="stat-number">${completed.length}</div><div class="stat-label">已有續保紀錄</div></div>
+    <div class="stat-card expired"><div class="stat-number">${db.vehicles.filter(v=>getStatus(v.expire)==='expired').length}</div><div class="stat-label">已過期未續保</div></div>
+  `;
+  switchRenewalTab(renewalTab,null);
+}
+
+function switchRenewalTab(tab,el){
+  renewalTab=tab;
+  document.querySelectorAll('#page-renewal .tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const c=document.getElementById('renewal-content');
+  if(tab==='pending'){
+    const vs=db.vehicles.filter(v=>daysLeft(v.expire)<=40).sort((a,b)=>new Date(a.expire)-new Date(b.expire));
+    if(!vs.length){c.innerHTML='<div class="card"><p style="color:var(--gray-400);text-align:center;padding:20px">目前無需續保的車輛</p></div>';return}
+    c.innerHTML=`<div class="table-wrap"><table>
+      <thead><tr><th><input type="checkbox" onchange="toggleAll(this,'rcheck')"></th><th>車牌</th><th>到期日</th><th>狀態</th><th>保險公司</th><th>被保人</th><th>聯絡人</th><th>合計保費</th><th>操作</th></tr></thead>
+      <tbody>${vs.map(v=>`<tr>
+        <td><input type="checkbox" class="rcheck" value="${v.id}"></td>
+        <td><span class="plate" onclick="openDetail('${v.id}')">${escHtml(v.plate)}</span></td>
+        <td>${fmtDate(v.expire)}</td><td>${statusBadge(v.expire)}</td>
+        <td>${escHtml(v.insurer)}</td><td>${escHtml(v.assured?.name)||'—'}</td>
+        <td>${escHtml(v.contact?.name)||'—'}</td>
+        <td style="color:var(--danger);font-weight:600">${fmtMoney(v.premiumTotal)}</td>
+        <td><div class="btn-group">
+          <button class="btn btn-sm btn-success" onclick="openRenewal('${v.id}')"><i class="ti ti-refresh"></i>續保</button>
+          <button class="btn btn-sm btn-outline" onclick="openSendMsg('${v.id}')"><i class="ti ti-send"></i>通知</button>
+        </div></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  } else if(tab==='completed'){
+    const vs=db.vehicles.filter(v=>v.renewalHistory?.length>0).sort((a,b)=>new Date(b.renewalHistory.slice(-1)[0]?.date)-new Date(a.renewalHistory.slice(-1)[0]?.date));
+    if(!vs.length){c.innerHTML='<div class="card"><p style="color:var(--gray-400);text-align:center;padding:20px">尚無續保紀錄</p></div>';return}
+    c.innerHTML='<div style="display:grid;gap:12px">'+vs.map(v=>{
+      const last=v.renewalHistory.slice(-1)[0];
+      return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div><span class="plate">${escHtml(v.plate)}</span> <span style="margin-left:8px;font-size:13px">${escHtml(v.insurer)}</span></div>
+        <div><span class="renewal-badge">最近續保：${fmtDate(last?.date)}</span></div>
+        <div style="color:var(--danger);font-weight:700">${fmtMoney(last?.total)}</div>
+      </div></div>`;
+    }).join('')+'</div>';
+  } else {
+    const allHistory=db.vehicles.flatMap(v=>(v.renewalHistory||[]).map(h=>({...h,plate:v.plate,insurer:v.insurer}))).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    if(!allHistory.length){c.innerHTML='<div class="card"><p style="color:var(--gray-400);text-align:center;padding:20px">尚無歷史紀錄</p></div>';return}
+    c.innerHTML=`<div class="table-wrap"><table>
+      <thead><tr><th>日期</th><th>車牌</th><th>保險公司</th><th>強制險</th><th>商業險</th><th>合計</th></tr></thead>
+      <tbody>${allHistory.slice(0,50).map(h=>`<tr>
+        <td>${fmtDate(h.date)}</td>
+        <td><span class="plate">${escHtml(h.plate)}</span></td>
+        <td>${escHtml(h.insurer)}</td>
+        <td>${fmtMoney(h.comp)}</td><td>${fmtMoney(h.comm)}</td>
+        <td style="color:var(--danger);font-weight:600">${fmtMoney(h.total)}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+}
+
+// ============ NOTIFICATIONS ============
+function renderNotifications(){
+  const filter=(document.getElementById('notif-filter')||{}).value||'all';
+  let ns=db.notifications;
+  if(filter==='unread')ns=ns.filter(n=>!n.read);
+  else if(filter!=='all')ns=ns.filter(n=>n.type===filter);
+  ns=[...ns].reverse();
+  const unread=db.notifications.filter(n=>!n.read).length;
+  document.getElementById('unread-count').textContent=`共 ${ns.length} 則，${unread} 則未讀`;
+  const navEl=document.getElementById('notif-nav');
+  if(unread>0){navEl.className='nav-item notif-dot';navEl.innerHTML=`<i class="ti ti-bell"></i>通知中心<span class="nav-badge">${unread}</span>`}
+  else{navEl.className='nav-item';navEl.innerHTML='<i class="ti ti-bell"></i>通知中心'}
+  const el=document.getElementById('notif-list');
+  if(!ns.length){el.innerHTML='<div class="card"><p style="text-align:center;color:var(--gray-400);padding:20px">暫無通知</p></div>';return}
+  const typeColors={'40days':'var(--warning)','7days':'var(--danger)','expired':'var(--gray-700)','system':'var(--primary)'};
+  const typeLabels={'40days':'40天提醒','7days':'7天緊急','expired':'已過期','system':'系統'};
+  el.innerHTML=ns.map(n=>`
+    <div class="card" style="margin-bottom:8px;opacity:${n.read?0.6:1};border-left:3px solid ${typeColors[n.type]||'var(--gray-400)'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${n.read?'':'<div style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0"></div>'}
+          <div>
+            <span class="badge badge-${n.type==='7days'?'danger':n.type==='expired'?'expired':'warning'}" style="margin-bottom:4px">${typeLabels[n.type]||n.type}</span>
+            <p style="font-size:13px">${escHtml(n.message)}</p>
+            <p style="font-size:11px;color:var(--gray-400)">${fmtDate(n.date)}</p>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="markRead('${n.id}')">${n.read?'已讀':'標記已讀'}</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function markRead(id){const n=db.notifications.find(x=>x.id===id);if(n)n.read=true;saveDB();renderNotifications()}
+function markAllRead(){db.notifications.forEach(n=>n.read=true);saveDB();renderNotifications()}
+
+// ============ REPORTS ============
+let chartAnnual=null,chartPie=null,chartTrend=null;
+function renderReports(){
+  setTimeout(()=>{
+    const months=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const year=new Date().getFullYear();
+    // Annual by month
+    const monthly=Array(12).fill(0);
+    db.vehicles.forEach(v=>{if(v.expire&&new Date(v.expire).getFullYear()===year){const m=new Date(v.expire).getMonth();monthly[m]+=(v.premiumTotal||0)}});
+    const ctx1=document.getElementById('chart-annual');
+    if(ctx1){if(chartAnnual)chartAnnual.destroy();chartAnnual=new Chart(ctx1,{type:'bar',data:{labels:months,datasets:[{label:'保費',data:monthly,backgroundColor:'rgba(26,95,168,0.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
+    // Pie by vehicle
+    const ctx2=document.getElementById('chart-pie');
+    const topV=db.vehicles.slice(0,8);
+    if(ctx2){if(chartPie)chartPie.destroy();chartPie=new Chart(ctx2,{type:'pie',data:{labels:topV.map(v=>v.plate),datasets:[{data:topV.map(v=>v.premiumTotal||0),backgroundColor:['#1a5fa8','#16a34a','#ca8a04','#dc2626','#7c3aed','#ea580c','#0891b2','#be185d']}]},options:{responsive:true,maintainAspectRatio:false}})}
+    // Trend
+    const ctx3=document.getElementById('chart-trend');
+    const years=[year-2,year-1,year];
+    const ydata=years.map(y=>db.vehicles.filter(v=>v.expire&&new Date(v.expire).getFullYear()===y).reduce((s,v)=>s+(v.premiumTotal||0),0));
+    if(ctx3){if(chartTrend)chartTrend.destroy();chartTrend=new Chart(ctx3,{type:'line',data:{labels:years.map(y=>y+'年'),datasets:[{label:'總保費',data:ydata,borderColor:'#1a5fa8',backgroundColor:'rgba(26,95,168,0.1)',fill:true,tension:0.4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
+  },50);
+}
+
+// ============ FAMILIES ============
+function renderFamilies(){
+  const el=document.getElementById('family-list');
+  if(!db.families.length){el.innerHTML='<div class="card"><p style="text-align:center;color:var(--gray-400);padding:20px">尚無家庭群組</p></div>';return}
+  el.innerHTML=db.families.map(f=>{
+    const vs=db.vehicles.filter(v=>v.familyId===f.id);
+    const members=[...new Set(vs.map(v=>v.contact?.name).filter(Boolean))];
+    const expiringSoon=vs.filter(v=>daysLeft(v.expire)<=40).length;
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:16px;font-weight:700"><i class="ti ti-home"></i> ${escHtml(f.name)}</div>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline" onclick="addVehicleToFamily('${f.id}')"><i class="ti ti-plus"></i>新增車輛</button>
+          <button class="btn btn-sm btn-outline" onclick="deleteFamily('${f.id}')" style="color:var(--danger)"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;font-size:13px;color:var(--gray-600);flex-wrap:wrap">
+        <span>🚗 車輛數：${vs.length}台</span>
+        <span>👥 成員：${members.join('、')||'無'}</span>
+        ${expiringSoon?`<span style="color:var(--danger)">⚠️ ${expiringSoon}台即將到期</span>`:''}
+      </div>
+      ${vs.length?`<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">${vs.map(v=>`<span class="plate" onclick="openDetail('${v.id}')" style="cursor:pointer">${escHtml(v.plate)}</span>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function openAddFamily(){document.getElementById('fam-name').value='';document.getElementById('fam-note').value='';document.getElementById('family-modal').style.display='flex'}
+function saveFamily(){const n=document.getElementById('fam-name').value.trim();if(!n)return alert('請輸入家庭名稱');db.families.push({id:'f'+Date.now(),name:n,note:document.getElementById('fam-note').value});saveDB();closeModal('family-modal');renderFamilies()}
+function deleteFamily(id){if(!confirm('確定刪除此家庭群組？'))return;db.families=db.families.filter(f=>f.id!==id);db.vehicles.forEach(v=>{if(v.familyId===id)v.familyId=''});saveDB();renderFamilies()}
+function addVehicleToFamily(fid){openAddVehicle();setTimeout(()=>{document.getElementById('v-family-sel').value=fid},100)}
+
+// ============ CUSTOMERS ============
+function renderCustomers(){
+  const search=(document.getElementById('cust-search')||{}).value?.toLowerCase()||'';
+  const group=(document.getElementById('cust-group')||{}).value||'';
+  const customers=[...new Map(db.vehicles.map(v=>[v.contact?.name,{name:v.contact?.name,phone:v.contact?.phone,line:v.contact?.line,group:v.group,label:v.label,vehicles:db.vehicles.filter(x=>x.contact?.name===v.contact?.name)}])).values()].filter(c=>c.name);
+  let cs=customers;
+  if(search)cs=cs.filter(c=>c.name.toLowerCase().includes(search));
+  if(group)cs=cs.filter(c=>c.group===group);
+  const el=document.getElementById('customer-list');
+  if(!cs.length){el.innerHTML='<div class="card"><p style="text-align:center;color:var(--gray-400);padding:20px">查無客戶</p></div>';return}
+  el.innerHTML=cs.map(c=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--primary);font-size:16px">${(c.name||'?')[0]}</div>
+          <div>
+            <div style="font-weight:600;font-size:15px">${escHtml(c.name)}</div>
+            <div style="font-size:12px;color:var(--gray-500)">${escHtml(c.phone)||''} ${c.line?'｜LINE: '+escHtml(c.line):''}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="tag tag-${c.group==='VIP'?'vip':c.group==='潛在'?'potential':'normal'}">${escHtml(c.group||'一般')}</span>
+          <span style="font-size:12px;color:var(--gray-500)">🚗 ${c.vehicles.length} 台車輛</span>
+        </div>
+      </div>
+      ${c.vehicles.length?`<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">${c.vehicles.map(v=>`<span class="plate" onclick="openDetail('${v.id}')">${escHtml(v.plate)}</span>`).join('')}</div>`:''}
+    </div>
+  `).join('');
+}
+
+// ============ ADMIN ============
+let adminTab='insurer';
+function renderAdmin(){switchAdminTab(adminTab,null)}
+function switchAdminTab(tab,el){
+  adminTab=tab;
+  document.querySelectorAll('#page-admin .tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const c=document.getElementById('admin-content');
+  if(tab==='insurer'){
+    const links=db.settings.insurerLinks||[];
+    c.innerHTML=`<div style="display:grid;gap:12px">
+      ${['華南','和泰','南山','兆豐','國泰','富邦','新光','新安東京','臺灣','中信','第一','旺旺','泰安','明台','安達'].map(ins=>{
+        const lnk=links.find(l=>l.insurer===ins)||{insurer:ins,website:'',rescue:'',report:'',claim:''};
+        return `<div class="card"><div style="font-weight:600;margin-bottom:10px">${ins}</div>
+          <div class="form-grid-3">
+            <div class="form-group"><label>官網</label><input type="url" data-insurer="${ins}" data-field="website" value="${lnk.website||''}" placeholder="https://..." oninput="saveInsurerLink(this)"></div>
+            <div class="form-group"><label>救援</label><input type="url" data-insurer="${ins}" data-field="rescue" value="${lnk.rescue||''}" placeholder="https://..." oninput="saveInsurerLink(this)"></div>
+            <div class="form-group"><label>通報</label><input type="url" data-insurer="${ins}" data-field="report" value="${lnk.report||''}" placeholder="https://..." oninput="saveInsurerLink(this)"></div>
+            <div class="form-group"><label>理賠</label><input type="url" data-insurer="${ins}" data-field="claim" value="${lnk.claim||''}" placeholder="https://..." oninput="saveInsurerLink(this)"></div>
+          </div></div>`;
+      }).join('')}
+    </div>`;
+  } else if(tab==='reminder'){
+    c.innerHTML=`<div class="card"><div class="form-grid">
+      <div class="form-group"><label>第一次提醒（到期前天數）</label><input type="number" id="remind1" value="${db.settings.remind1||40}" min="1" max="365"></div>
+      <div class="form-group"><label>第二次提醒（到期前天數）</label><input type="number" id="remind2" value="${db.settings.remind2||7}" min="1" max="365"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="saveRemindSettings()"><i class="ti ti-device-floppy"></i>儲存設定</button></div>`;
+  } else if(tab==='types'){
+    c.innerHTML=`<div class="card"><div style="font-size:15px;font-weight:600;margin-bottom:12px">自訂車輛類型</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${(db.customTypes||[]).map(t=>`<span class="badge badge-blue">${escHtml(t)}<button onclick="removeType('${t}')" style="background:none;border:none;cursor:pointer;margin-left:4px;color:inherit">×</button></span>`).join('')}</div>
+      <div style="display:flex;gap:8px"><input type="text" id="new-type" placeholder="新增自訂類型" style="max-width:200px"><button class="btn btn-primary btn-sm" onclick="addType()"><i class="ti ti-plus"></i>新增</button></div></div>`;
+  } else if(tab==='data'){
+    c.innerHTML=`<div class="card"><div style="display:grid;gap:12px">
+      <div><div style="font-weight:600;margin-bottom:8px">匯出資料</div>
+        <div class="btn-group">
+          <button class="btn btn-outline" onclick="exportAll('excel')"><i class="ti ti-file-spreadsheet"></i>匯出全部 Excel</button>
+          <button class="btn btn-outline" onclick="exportAll('pdf')"><i class="ti ti-file-pdf"></i>匯出全部 PDF</button>
+        </div>
+      </div>
+      <div><div style="font-weight:600;margin-bottom:8px">資料備份</div>
+        <div class="btn-group">
+          <button class="btn btn-outline" onclick="backupData()"><i class="ti ti-download"></i>下載備份 JSON</button>
+          <label class="btn btn-outline"><i class="ti ti-upload"></i>匯入備份<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+        </div>
+      </div>
+      <div><div style="font-weight:600;margin-bottom:8px;color:var(--danger)">危險操作</div>
+        <button class="btn btn-danger btn-sm" onclick="clearAllData()"><i class="ti ti-trash"></i>清除所有資料</button>
+      </div>
+    </div></div>`;
+  }
+}
+
+function saveInsurerLink(el){
+  const ins=el.dataset.insurer,field=el.dataset.field,val=el.value;
+  if(!db.settings.insurerLinks)db.settings.insurerLinks=[];
+  let l=db.settings.insurerLinks.find(x=>x.insurer===ins);
+  if(!l){l={insurer:ins,website:'',rescue:'',report:'',claim:''};db.settings.insurerLinks.push(l)}
+  l[field]=val;saveDB();
+}
+
+function saveRemindSettings(){db.settings.remind1=+document.getElementById('remind1').value;db.settings.remind2=+document.getElementById('remind2').value;saveDB();alert('設定已儲存！')}
+function addType(){const t=document.getElementById('new-type').value.trim();if(!t)return;if(!db.customTypes)db.customTypes=[];db.customTypes.push(t);saveDB();switchAdminTab('types',null)}
+function removeType(t){db.customTypes=db.customTypes.filter(x=>x!==t);saveDB();switchAdminTab('types',null)}
+function backupData(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='車險管家備份_'+new Date().toISOString().slice(0,10)+'.json';a.click()}
+function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{db=JSON.parse(ev.target.result);saveDB();alert('匯入成功！');renderPage(currentPage)}catch(err){alert('檔案格式錯誤')}};r.readAsText(f)}
+function clearAllData(){if(!confirm('確定清除所有資料？此操作無法復原！'))return;db=getDefaultDB();saveDB();renderPage(currentPage);alert('已清除')}
+
+// ============ TEMPLATES ============
+function renderTemplates(){
+  const el=document.getElementById('template-list');
+  el.innerHTML=db.templates.map(t=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:600">${escHtml(t.name)}</div>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline" onclick="editTemplate('${t.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn btn-sm btn-outline" onclick="deleteTemplate('${t.id}')" style="color:var(--danger)"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--gray-600);white-space:pre-wrap">${escHtml(t.content)}</p>
+    </div>
+  `).join('');
+}
+
+function openAddTemplate(){
+  const name=prompt('模板名稱：');if(!name)return;
+  const content=prompt('模板內容（可用 {plate} {date} 等變數）：');if(!content)return;
+  db.templates.push({id:'t'+Date.now(),name,content});saveDB();renderTemplates();
+}
+
+function editTemplate(id){const t=db.templates.find(x=>x.id===id);if(!t)return;const c=prompt('編輯模板內容：',t.content);if(c!==null){t.content=c;saveDB();renderTemplates()}}
+function deleteTemplate(id){if(!confirm('確定刪除此模板？'))return;db.templates=db.templates.filter(t=>t.id!==id);saveDB();renderTemplates()}
+
+// ============ VEHICLE MODAL ============
+let editingId=null;
+function openAddVehicle(){
+  editingId=null;
+  document.getElementById('vmodal-title').textContent='新增車輛';
+  clearVehicleForm();
+  updateFamilySelect();
+  buildCoverageList();
+  switchVTab('basic');
+  document.getElementById('vehicle-modal').style.display='flex';
+}
+
+function editVehicle(id){
+  const v=db.vehicles.find(x=>x.id===id);if(!v)return;
+  editingId=id;
+  document.getElementById('vmodal-title').textContent='編輯車輛';
+  updateFamilySelect();
+  buildCoverageList(v.coverages||[],v.coverageAmounts||{});
+  // Fill form
+  document.getElementById('v-label-input').value=v.label||'';
+  document.getElementById('v-type-sel').value=v.type||'car';
+  document.getElementById('v-plate').value=v.plate||'';
+  document.getElementById('v-insurer-sel').value=v.insurer||'';
+  document.getElementById('v-expire').value=v.expire||'';
+  document.getElementById('v-group-sel').value=v.group||'一般';
+  document.getElementById('v-family-sel').value=v.familyId||'';
+  document.getElementById('v-remind-time').value=v.remindTime||'09:00';
+  document.getElementById('v-premium-compulsory').value=v.premiumCompulsory||'';
+  document.getElementById('v-premium-commercial').value=v.premiumCommercial||'';
+  document.getElementById('v-premium-total').value=v.premiumTotal||'';
+  document.getElementById('p-contact-name').value=v.contact?.name||'';
+  document.getElementById('p-contact-phone').value=v.contact?.phone||'';
+  document.getElementById('p-contact-line').value=v.contact?.line||'';
+  document.getElementById('p-insured-name').value=v.insured?.name||'';
+  document.getElementById('p-insured-phone').value=v.insured?.phone||'';
+  document.getElementById('p-assured-name').value=v.assured?.name||'';
+  document.getElementById('p-assured-phone').value=v.assured?.phone||'';
+  document.getElementById('p-user-name').value=v.userPerson?.name||'';
+  document.getElementById('p-user-phone').value=v.userPerson?.phone||'';
+  document.getElementById('v-notes').value=v.notes||'';
+  document.getElementById('v-custom-msg').value=v.customMsg||'';
+  switchVTab('basic');
+  document.getElementById('vehicle-modal').style.display='flex';
+}
+
+function clearVehicleForm(){
+  ['v-label-input','v-plate','v-premium-compulsory','v-premium-commercial','v-premium-total','p-contact-name','p-contact-phone','p-contact-line','p-insured-name','p-insured-phone','p-assured-name','p-assured-phone','p-user-name','p-user-phone','v-notes','v-custom-msg'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  const today=new Date();today.setFullYear(today.getFullYear()+1);
+  document.getElementById('v-expire').value=today.toISOString().slice(0,10);
+}
+
+function updateFamilySelect(){
+  const sel=document.getElementById('v-family-sel');
+  sel.innerHTML='<option value="">無</option>'+db.families.map(f=>`<option value="${f.id}">${escHtml(f.name)}</option>`).join('');
+}
+
+function buildCoverageList(checked=[],amounts={}){
+  const el=document.getElementById('coverage-list');
+  el.innerHTML=COVERAGES.map(c=>`
+    <div class="checkbox-item" style="flex-direction:column;align-items:flex-start;gap:4px;padding:8px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600">
+        <input type="checkbox" id="cov-${c.id}" value="${c.id}" ${checked.includes(c.id)?'checked':''}>
+        ${c.id}. ${escHtml(c.name)}
+      </label>
+      <input type="number" id="amt-${c.id}" placeholder="保額" value="${amounts[c.id]||''}" style="width:100%;font-size:12px;padding:4px 6px">
+    </div>
+  `).join('');
+}
+
+function switchVTab(tab){
+  ['basic','coverage','people','notes'].forEach(t=>{
+    document.getElementById('vtab-content-'+t).style.display=t===tab?'block':'none';
+    document.getElementById('vtab-'+t).className=t===tab?'btn btn-sm':'btn btn-sm btn-outline';
+    document.getElementById('vtab-'+t).style.background=t===tab?'var(--primary)':'';
+    document.getElementById('vtab-'+t).style.color=t===tab?'#fff':'';
+  });
+}
+
+function calcTotal(){
+  const c=+document.getElementById('v-premium-compulsory').value||0;
+  const m=+document.getElementById('v-premium-commercial').value||0;
+  document.getElementById('v-premium-total').value=c+m;
+}
+
+function copyPerson(target,source){
+  const maps={contact:{name:'p-contact-name',phone:'p-contact-phone'},insured:{name:'p-insured-name',phone:'p-insured-phone'},assured:{name:'p-assured-name',phone:'p-assured-phone'},user:{name:'p-user-name',phone:'p-user-phone'}};
+  const src=maps[source],tgt=maps[target];
+  if(!src||!tgt)return;
+  document.getElementById(tgt.name).value=document.getElementById(src.name).value;
+  document.getElementById(tgt.phone).value=document.getElementById(src.phone).value;
+}
+
+function saveVehicle(){
+  const plate=document.getElementById('v-plate').value.trim();
+  if(!plate)return alert('請輸入車牌號碼');
+  const expire=document.getElementById('v-expire').value;
+  if(!expire)return alert('請輸入到期日');
+  const coverages=[...document.querySelectorAll('#coverage-list input[type=checkbox]:checked')].map(c=>c.value);
+  const coverageAmounts={};
+  coverages.forEach(id=>{const a=document.getElementById('amt-'+id)?.value;if(a)coverageAmounts[id]=+a});
+  const comp=+document.getElementById('v-premium-compulsory').value||0;
+  const comm=+document.getElementById('v-premium-commercial').value||0;
+  const vehicle={
+    id:editingId||uid(),type:document.getElementById('v-type-sel').value,plate,
+    insurer:document.getElementById('v-insurer-sel').value,expire,
+    premiumCompulsory:comp,premiumCommercial:comm,premiumTotal:comp+comm,
+    contact:{name:document.getElementById('p-contact-name').value,phone:document.getElementById('p-contact-phone').value,line:document.getElementById('p-contact-line').value},
+    insured:{name:document.getElementById('p-insured-name').value,phone:document.getElementById('p-insured-phone').value},
+    assured:{name:document.getElementById('p-assured-name').value,phone:document.getElementById('p-assured-phone').value},
+    userPerson:{name:document.getElementById('p-user-name').value,phone:document.getElementById('p-user-phone').value},
+    coverages,coverageAmounts,
+    notes:document.getElementById('v-notes').value,
+    customMsg:document.getElementById('v-custom-msg').value,
+    label:document.getElementById('v-label-input').value,
+    group:document.getElementById('v-group-sel').value,
+    familyId:document.getElementById('v-family-sel').value,
+    remindTime:document.getElementById('v-remind-time').value,
+    renewalHistory:editingId?db.vehicles.find(v=>v.id===editingId)?.renewalHistory||[]:[]
+  };
+  if(editingId){const idx=db.vehicles.findIndex(v=>v.id===editingId);if(idx>=0)db.vehicles[idx]=vehicle}
+  else db.vehicles.push(vehicle);
+  saveDB();closeModal('vehicle-modal');
+  checkAndAddNotifications(vehicle);
+  renderPage(currentPage);
+}
+
+function checkAndAddNotifications(v){
+  const dl=daysLeft(v.expire);
+  const r1=db.settings.remind1||40,r2=db.settings.remind2||7;
+  if(dl<=r1&&dl>r2){
+    db.notifications.push({id:'n'+Date.now(),type:'40days',vehicleId:v.id,message:`${v.plate} 將於${dl}天後到期（${fmtDate(v.expire)}）`,date:new Date().toISOString(),read:false});
+  } else if(dl<=r2&&dl>=0){
+    db.notifications.push({id:'n'+Date.now(),type:'7days',vehicleId:v.id,message:`⚠️ 緊急！${v.plate} 將於${dl}天後到期！`,date:new Date().toISOString(),read:false});
+  } else if(dl<0){
+    db.notifications.push({id:'n'+Date.now(),type:'expired',vehicleId:v.id,message:`${v.plate} 已過期${Math.abs(dl)}天，請盡快處理！`,date:new Date().toISOString(),read:false});
+  }
+  saveDB();
+}
+
+function deleteVehicle(id){if(!confirm('確定刪除此車輛？'))return;db.vehicles=db.vehicles.filter(v=>v.id!==id);saveDB();renderPage(currentPage)}
+
+// ============ DETAIL MODAL ============
+let currentDetailId=null;
+function openDetail(id){
+  currentDetailId=id;
+  const v=db.vehicles.find(x=>x.id===id);if(!v)return;
+  const covNames=(v.coverages||[]).map(c=>{const f=COVERAGES.find(x=>x.id===c);return f?`${c}.${f.name}`:c});
+  document.getElementById('detail-title').textContent=`${typeIcon(v.type)} ${v.plate} 車輛詳細資料`;
+  document.getElementById('detail-body').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card" style="margin-bottom:0">
+        <div style="font-weight:600;margin-bottom:8px;color:var(--primary)">基本資料</div>
+        <table style="font-size:13px;width:100%">
+          <tr><td style="color:var(--gray-500);padding:4px 0">車牌</td><td><span class="plate">${escHtml(v.plate)}</span></td></tr>
+          <tr><td style="color:var(--gray-500);padding:4px 0">類型</td><td>${typeIcon(v.type)} ${v.type==='car'?'汽車':v.type==='moto'?'機車':'其他'}</td></tr>
+          <tr><td style="color:var(--gray-500);padding:4px 0">保險公司</td><td>${escHtml(v.insurer)}</td></tr>
+          <tr><td style="color:var(--gray-500);padding:4px 0">到期日</td><td>${fmtDate(v.expire)}</td></tr>
+          <tr><td style="color:var(--gray-500);padding:4px 0">狀態</td><td>${statusBadge(v.expire)}</td></tr>
+          <tr><td style="color:var(--gray-500);padding:4px 0">分組</td><td><span class="tag tag-${v.group==='VIP'?'vip':v.group==='潛在'?'potential':'normal'}">${escHtml(v.group)}</span></td></tr>
+        </table>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div style="font-weight:600;margin-bottom:8px;color:var(--primary)">保費明細</div>
+        <table style="font-size:13px;width:100%">
+          <tr><td style="color:var(--gray-500);padding:4px 0">強制險</td><td style="font-weight:600">${fmtMoney(v.premiumCompulsory)}</td></tr>
+          <tr><td style="color:var(--gray-500);padding:4px 0">商業險</td><td style="font-weight:600">${fmtMoney(v.premiumCommercial)}</td></tr>
+          <tr><td style="color:var(--gray-500);padding:4px 0;font-weight:700">合計</td><td style="font-weight:700;color:var(--danger);font-size:16px">${fmtMoney(v.premiumTotal)}</td></tr>
+        </table>
+        ${v.premiumTotal>10000?'<div style="margin-top:8px;padding:6px;background:var(--warning-light);border-radius:6px;font-size:12px;color:var(--warning)">⚠️ 保費異常偏高，請確認</div>':''}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-weight:600;margin-bottom:8px;color:var(--primary)">相關人員</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;font-size:13px">
+        ${['contact','insured','assured','userPerson'].map((k,i)=>{const labels=['聯絡人','要保人','被保人','使用人'];const p=v[k]||{};return `<div><div style="font-weight:600;color:var(--gray-500);font-size:11px;margin-bottom:4px">${labels[i]}</div><div>${escHtml(p.name)||'—'}</div><div style="color:var(--gray-500)">${escHtml(p.phone)||''}</div></div>`}).join('')}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-weight:600;margin-bottom:8px;color:var(--primary)">投保項目</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${covNames.map(n=>`<span class="badge badge-blue">${escHtml(n)}</span>`).join('')||'—'}</div>
+    </div>
+    ${v.notes?`<div class="card" style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:6px;color:var(--primary)">備註</div><p style="font-size:13px;white-space:pre-wrap">${escHtml(v.notes)}</p></div>`:''}
+    ${v.renewalHistory?.length?`<div class="card"><div style="font-weight:600;margin-bottom:8px;color:var(--primary)">續保歷史（最近${Math.min(10,v.renewalHistory.length)}筆）</div>
+      <table style="font-size:13px;width:100%"><thead><tr><th>日期</th><th>強制險</th><th>商業險</th><th>合計</th></tr></thead>
+      <tbody>${v.renewalHistory.slice(-10).reverse().map(h=>`<tr><td>${fmtDate(h.date)}</td><td>${fmtMoney(h.comp)}</td><td>${fmtMoney(h.comm)}</td><td style="color:var(--danger);font-weight:600">${fmtMoney(h.total)}</td></tr>`).join('')}</tbody></table></div>`:''}
+  `;
+  document.getElementById('renewal-btn').onclick=()=>openRenewal(id);
+  document.getElementById('edit-btn').onclick=()=>{closeModal('detail-modal');editVehicle(id)};
+  document.getElementById('detail-modal').style.display='flex';
+}
+
+// ============ RENEWAL ============
+let renewingId=null;
+function openRenewal(id){
+  renewingId=id;
+  const v=db.vehicles.find(x=>x.id===id);if(!v)return;
+  const next=new Date(v.expire);next.setFullYear(next.getFullYear()+1);
+  document.getElementById('renewal-date').value=next.toISOString().slice(0,10);
+  document.getElementById('renewal-compulsory').value=v.premiumCompulsory||0;
+  document.getElementById('renewal-commercial').value=v.premiumCommercial||0;
+  document.getElementById('renewal-total').value=v.premiumTotal||0;
+  const updateTotal=()=>{document.getElementById('renewal-total').value=(+document.getElementById('renewal-compulsory').value||0)+(+document.getElementById('renewal-commercial').value||0)};
+  document.getElementById('renewal-compulsory').oninput=updateTotal;
+  document.getElementById('renewal-commercial').oninput=updateTotal;
+  document.getElementById('renewal-modal').style.display='flex';
+}
+
+function confirmRenewal(){
+  const v=db.vehicles.find(x=>x.id===renewingId);if(!v)return;
+  const newDate=document.getElementById('renewal-date').value;
+  const comp=+document.getElementById('renewal-compulsory').value||0;
+  const comm=+document.getElementById('renewal-commercial').value||0;
+  v.expire=newDate;v.premiumCompulsory=comp;v.premiumCommercial=comm;v.premiumTotal=comp+comm;
+  if(!v.renewalHistory)v.renewalHistory=[];
+  v.renewalHistory.push({date:new Date().toISOString().slice(0,10),comp,comm,total:comp+comm});
+  if(v.renewalHistory.length>10)v.renewalHistory=v.renewalHistory.slice(-10);
+  saveDB();closeModal('renewal-modal');closeModal('detail-modal');
+  alert(`✅ ${v.plate} 續保完成！新到期日：${fmtDate(newDate)}`);renderPage(currentPage);
+}
+
+// ============ SEND MSG ============
+let msgVehicleId=null;
+function openSendMsg(id){
+  msgVehicleId=id;
+  const v=db.vehicles.find(x=>x.id===id);if(!v)return;
+  const tmpl=db.templates[0];
+  let msg=v.customMsg||(tmpl?.content||'');
+  msg=msg.replace('{plate}',v.plate).replace('{date}',fmtDate(v.expire));
+  document.getElementById('msg-content').value=msg;
+  document.getElementById('msg-modal').style.display='flex';
+}
+
+function applyTemplate(style){
+  const v=db.vehicles.find(x=>x.id===msgVehicleId);if(!v)return;
+  const templates={formal:db.templates[0],friendly:db.templates[1],short:db.templates[2]};
+  const t=templates[style];if(!t)return;
+  let msg=t.content.replace('{plate}',v.plate).replace('{date}',fmtDate(v.expire));
+  document.getElementById('msg-content').value=msg;
+}
+
+function copyMsg(){
+  navigator.clipboard.writeText(document.getElementById('msg-content').value).then(()=>alert('已複製到剪貼簿！'));
+  // Record notification time
+  const v=db.vehicles.find(x=>x.id===msgVehicleId);if(v){v.lastNotified=new Date().toISOString();saveDB()}
+}
+
+function shareViaLine(){
+  const msg=encodeURIComponent(document.getElementById('msg-content').value);
+  window.open('https://social-plugins.line.me/lineit/share?url=&text='+msg,'_blank');
+}
+
+// ============ EXPORT ============
+function exportAll(format){
+  const vs=[...db.vehicles].sort((a,b)=>new Date(a.expire)-new Date(b.expire));
+  if(format==='excel')exportExcel(vs,'全部車輛');
+  else exportPDF(vs);
+}
+
+function exportExcel(vs,sheetName='車輛資料'){
+  if(!vs.length){alert('無資料可匯出');return}
+  const headers=['車牌','類型','保險公司','到期日','狀態','投保項目','被保人','聯絡人','聯絡電話','強制險','商業險','合計保費','標籤','備註'];
+  const rows=vs.map(v=>[
+    v.plate,v.type==='car'?'汽車':v.type==='moto'?'機車':'其他',v.insurer,fmtDate(v.expire),
+    getStatus(v.expire)==='safe'?'安全':getStatus(v.expire)==='warning'?'即將到期':getStatus(v.expire)==='danger'?'緊急':'已過期',
+    (v.coverages||[]).map(c=>{const f=COVERAGES.find(x=>x.id===c);return f?f.name:c}).join('、'),
+    v.assured?.name||'',v.contact?.name||'',v.contact?.phone||'',
+    v.premiumCompulsory||0,v.premiumCommercial||0,v.premiumTotal||0,v.label||'',v.notes||''
+  ]);
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([headers,...rows]);
+  ws['!cols']=headers.map(()=>({wch:16}));
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  // Renewal history sheet
+  const allHistory=db.vehicles.flatMap(v=>(v.renewalHistory||[]).map(h=>({...h,plate:v.plate,insurer:v.insurer})));
+  if(allHistory.length){
+    const rws=XLSX.utils.aoa_to_sheet([['車牌','保險公司','續保日期','強制險','商業險','合計'],...allHistory.map(h=>[h.plate,h.insurer,fmtDate(h.date),h.comp,h.comm,h.total])]);
+    XLSX.utils.book_append_sheet(wb,rws,'續保歷史');
+  }
+  XLSX.writeFile(wb,'車險管家_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+function exportPDF(vs){
+  const content=vs.map(v=>`車牌：${v.plate} | ${v.insurer} | 到期：${fmtDate(v.expire)} | 合計：${fmtMoney(v.premiumTotal)}`).join('\n');
+  const blob=new Blob([`車險管家報表\n匯出日期：${new Date().toLocaleDateString('zh-TW')}\n\n`+content+'\n\n共 '+vs.length+' 筆資料'],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='車險報表_'+new Date().toISOString().slice(0,10)+'.txt';a.click();
+}
+
+// ============ MODAL HELPERS ============
+function closeModal(id){document.getElementById(id).style.display='none'}
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.style.display='none'}));
+
+// ============ INIT ============
+function init(){
+  // Auto check notifications on load
+  db.vehicles.forEach(v=>checkAndAddNotifications(v));
+  renderPage('dashboard');
+  // Populate insurer filters
+  const ins=[...new Set(db.vehicles.map(v=>v.insurer))];
+  const insSel=document.getElementById('v-insurer');
+  if(insSel)insSel.innerHTML='<option value="">全部保險公司</option>'+ins.map(i=>`<option value="${i}">${i}</option>`).join('');
+  // Auto refresh notifications every minute
+  setInterval(()=>{const unread=db.notifications.filter(n=>!n.read).length;const navEl=document.getElementById('notif-nav');if(navEl){if(unread>0){navEl.className='nav-item notif-dot';navEl.innerHTML=`<i class="ti ti-bell"></i>通知中心<span class="nav-badge">${unread}</span>`}else{navEl.className='nav-item';navEl.innerHTML='<i class="ti ti-bell"></i>通知中心'}}},60000);
+}
+
+init();
+</script>
+</body>
+</html>
