@@ -183,6 +183,7 @@ textarea{resize:vertical;min-height:80px}
 mark{background:#fef08a;color:inherit;border-radius:2px;padding:0 2px}
 /* Print */
 @media print{.sidebar,.topbar,.btn-group,.modal-footer{display:none}.main{margin-left:0}.content{padding:0}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 /* Animation */
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .fade-in{animation:fadeIn .2s ease-out}
@@ -233,7 +234,9 @@ mark{background:#fef08a;color:inherit;border-radius:2px;padding:0 2px}
 <div class="main">
 <div class="topbar">
   <div class="topbar-title" id="page-title">儀表板</div>
+  <div id="sync-status" style="font-size:12px;display:flex;align-items:center;gap:4px;color:#9ca3af;margin-right:8px"><i class="ti ti-cloud-off"></i> 本機模式</div>
   <div class="btn-group">
+    <button class="btn btn-outline btn-sm" onclick="manualSync()" title="立即同步雲端"><i class="ti ti-refresh"></i>同步</button>
     <button class="btn btn-outline btn-sm" onclick="openAddVehicle()"><i class="ti ti-plus"></i>新增車輛</button>
     <button class="btn btn-outline btn-sm" onclick="exportAll('excel')"><i class="ti ti-file-spreadsheet"></i>匯出Excel</button>
     <button class="btn btn-outline btn-sm" onclick="exportAll('pdf')"><i class="ti ti-file-pdf"></i>匯出PDF</button>
@@ -690,16 +693,36 @@ mark{background:#fef08a;color:inherit;border-radius:2px;padding:0 2px}
 <button class="sidebar-mobile-toggle" onclick="toggleSidebar()"><i class="ti ti-menu-2"></i></button>
 
 <script>
+// ============ FIREBASE CONFIG ============
+const firebaseConfig = {
+  apiKey: "AIzaSyCIwJ_QoFMiiuX51oOtiiBKq80Ju1NHj14",
+  authDomain: "suns543802-1.firebaseapp.com",
+  projectId: "suns543802-1",
+  storageBucket: "suns543802-1.firebasestorage.app",
+  messagingSenderId: "943763918669",
+  appId: "1:943763918669:web:c59c3291b53e4e7e8bb104",
+  measurementId: "G-EBQQQ8VN12"
+};
+
+// Firebase SDK (loaded via CDN in <head>)
+let firestoreDb = null;
+let isOnline = false;
+let syncStatus = 'local'; // 'local' | 'syncing' | 'synced' | 'error'
+
 // ============ DATA STORE ============
 const STORAGE_KEY = 'car_insurance_mgr_v2';
-let db = loadDB();
+let db = loadLocalDB();
 
-function loadDB(){
+function loadLocalDB(){
   try{
     const s=localStorage.getItem(STORAGE_KEY);
     if(s) return JSON.parse(s);
   }catch(e){}
   return getDefaultDB();
+}
+
+function loadDB(){
+  return loadLocalDB();
 }
 
 function getDefaultDB(){
@@ -765,6 +788,66 @@ function getDefaultDB(){
 
 function saveDB(){
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(db));}catch(e){}
+  if(firestoreDb&&isOnline){syncToFirebase();}
+}
+
+function updateSyncUI(status){
+  syncStatus=status;
+  const el=document.getElementById('sync-status');
+  if(!el)return;
+  const map={local:{icon:'ti-cloud-off',text:'本機模式',color:'#9ca3af'},syncing:{icon:'ti-refresh',text:'同步中...',color:'#ca8a04'},synced:{icon:'ti-cloud-check',text:'已同步',color:'#16a34a'},error:{icon:'ti-cloud-x',text:'同步失敗',color:'#dc2626'}};
+  const m=map[status]||map.local;
+  el.innerHTML='<i class="ti '+m.icon+'" style="margin-right:4px"></i>'+m.text;
+  el.style.color=m.color;
+}
+
+async function syncToFirebase(){
+  if(!firestoreDb||!isOnline)return;
+  updateSyncUI('syncing');
+  try{
+    const {doc,setDoc}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const saveData={vehicles:db.vehicles,families:db.families,notifications:db.notifications,templates:db.templates,settings:db.settings,customTypes:db.customTypes||[],updatedAt:new Date().toISOString()};
+    await setDoc(doc(firestoreDb,'carinsurance','maindata'),saveData);
+    updateSyncUI('synced');
+  }catch(e){console.error('Firebase sync error:',e);updateSyncUI('error');}
+}
+
+async function loadFromFirebase(){
+  if(!firestoreDb)return false;
+  updateSyncUI('syncing');
+  try{
+    const {doc,getDoc}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const snap=await getDoc(doc(firestoreDb,'carinsurance','maindata'));
+    if(snap.exists()){
+      const data=snap.data();
+      if(data.vehicles)db.vehicles=data.vehicles;
+      if(data.families)db.families=data.families;
+      if(data.notifications)db.notifications=data.notifications;
+      if(data.templates)db.templates=data.templates;
+      if(data.settings)db.settings=data.settings;
+      if(data.customTypes)db.customTypes=data.customTypes;
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(db));
+      updateSyncUI('synced');
+      return true;
+    }
+    updateSyncUI('synced');
+    return false;
+  }catch(e){console.error('Firebase load error:',e);updateSyncUI('error');return false;}
+}
+
+async function initFirebase(){
+  try{
+    const {initializeApp}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const {getFirestore}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    const app=initializeApp(firebaseConfig);
+    firestoreDb=getFirestore(app);
+    isOnline=true;
+    const loaded=await loadFromFirebase();
+    if(loaded){renderPage(currentPage);}
+    window.addEventListener('online',()=>{isOnline=true;syncToFirebase();});
+    window.addEventListener('offline',()=>{isOnline=false;updateSyncUI('local');});
+    setInterval(async()=>{if(isOnline&&firestoreDb){const r=await loadFromFirebase();if(r)renderPage(currentPage);}},30000);
+  }catch(e){console.error('Firebase init error:',e);isOnline=false;updateSyncUI('local');}
 }
 
 // ============ UTILS ============
@@ -1695,12 +1778,23 @@ function init(){
   // Auto check notifications on load
   db.vehicles.forEach(v=>checkAndAddNotifications(v));
   renderPage('dashboard');
+  // Init Firebase
+  initFirebase();
   // Populate insurer filters
   const ins=[...new Set(db.vehicles.map(v=>v.insurer))];
   const insSel=document.getElementById('v-insurer');
   if(insSel)insSel.innerHTML='<option value="">全部保險公司</option>'+ins.map(i=>`<option value="${i}">${i}</option>`).join('');
   // Auto refresh notifications every minute
   setInterval(()=>{const unread=db.notifications.filter(n=>!n.read).length;const navEl=document.getElementById('notif-nav');if(navEl){if(unread>0){navEl.className='nav-item notif-dot';navEl.innerHTML=`<i class="ti ti-bell"></i>通知中心<span class="nav-badge">${unread}</span>`}else{navEl.className='nav-item';navEl.innerHTML='<i class="ti ti-bell"></i>通知中心'}}},60000);
+}
+
+function manualSync(){
+  if(!firestoreDb){alert('Firebase 尚未連線，請稍候再試');return;}
+  updateSyncUI('syncing');
+  loadFromFirebase().then(ok=>{
+    if(ok){renderPage(currentPage);alert('✅ 同步完成！');}
+    else{syncToFirebase().then(()=>alert('✅ 資料已上傳到雲端！'));}
+  });
 }
 
 init();
